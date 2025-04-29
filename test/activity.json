@@ -1,0 +1,37 @@
+{
+  "merchant": {
+    "id": "1234567890"
+  },
+  "body": {
+    "apiFlag": "6",
+    "authCode": "1335191891*2635277",
+    "stfId": "",
+    "verId": "1.0.0",
+    "mchntCd": "1234567890",
+    "tmlSeqNo": "24022004070A22451463",
+    "txnTmlId": "",
+    "shopId": "",
+    "txnAmt": "1",
+    "ordrRmrk": "测试关闭订单的是否有交易类型"
+  },
+  "sysHead": {
+    "branchId":"0000285000",
+    "systemId":"OPPS",
+    "srcSysId":"OPPS",
+    "userLang":"CHINESE",
+    "seqNo":"OPPS0OPENAPI01202402201448024580189920711",
+    "serviceCode":"30410004",
+    "tranTimestamp":"144802458",
+    "sourceBranchNo":"",
+    "tranMode":"ONLINE",
+    "userId":"",
+    "bak":"",
+    "destBranchNo":"",
+    "rqsSerIp":"10.20.165.174",
+    "macValue":"",
+    "sceneId":"03",
+    "tranDate":"20240220",
+    "subSeqNo":"OPPS0OPENAPI01202402201448024580189920711",
+    "programId":"OPPS"
+  }
+}
