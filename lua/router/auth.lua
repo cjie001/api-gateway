@@ -1,11 +1,12 @@
 local _M = {}
 local cjson = require "cjson.safe"
 local iputils = require "resty.iputils"
+local const = require "const"
 
 -- 初始化IP匹配器（支持CIDR）
 local ip_ranges = {
-    ["internal"] = iputils.parse_cidrs({"127.0.0.1/32", "10.0.0.0/8", "192.168.0.0/16", "154.81.156.0/24"}),
-    ["vip"] = iputils.parse_cidrs({"172.16.1.0/24"})
+    ["internal"] = iputils.parse_cidrs(const.IP_RANGES_INTERNAL),
+    ["vip"] = iputils.parse_cidrs(const.IP_RANGES_VIP)
 }
 
 -- 检查IP是否在CIDR范围内
@@ -49,7 +50,7 @@ function _M.check()
     local client_ip = ngx.var.remote_addr
 
     -- 2. 本地固定Token验证
-    if token == "SUNYARD_LOCAL_SECRET" then
+    if token == const.ADMIN_LOCAL_KEY then
         return check_ip_whitelist(client_ip, "internal")
     end
 
