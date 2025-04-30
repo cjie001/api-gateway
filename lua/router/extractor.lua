@@ -23,8 +23,9 @@ end
 
 -- 定义直接变量引用的映射表
 local direct_vars = {
-    ["${route_key}"] = function(ctx) return ctx.route_key end,
-    ["${uri}"] = function(ctx) return ctx.uri end,
+    ["${route_key}"]    = function(ctx) return ctx.route_key end,
+    ["${uri}"]          = function(ctx) return ctx.uri end,
+    ["${remote_addr}"]  = function(ctx) return ngx.var.remote_addr end,
     -- 可以在这里添加更多变量引用
 }
 
@@ -79,7 +80,7 @@ function _M.extract_var(key, ctx)
             end
         end
 
-    -- 支持 BODY['"merchant_id"%s*:%s*"([^"]+)'] 格式
+    -- 支持 BODY['"merchant_id"%s*:%s*"([^"]+)"'] 格式
     elseif key:match("^BODY%[") then
         local pattern = key:match("^BODY%['([^']+)'%]") or key:match('^BODY%["([^"]+)"%]')
         if pattern and ctx.body then
