@@ -20,7 +20,7 @@ local function fetch_rules_from_api()
     local httpc = http.new()
     httpc:set_timeouts(3, 10, HTTP_TIMEOUT)
 
-    local rules_api_url = ngx.shared.rules_api_url:get("rules_api_url")
+    local rules_api_url = ngx.shared.settings:get("rules_api_url")
     if not rules_api_url then
         return nil, "The rule service URL is not set."
     end
@@ -54,35 +54,39 @@ function _M.update_shared_dict(rules)
     --ngx.shared.route_configs:flush_all()
     --ngx.shared.upstreams:flush_all()
 
+    -- 首先存储所有路由键映射
+    if rules.route_key_maps then
+        for map_name, key_map in pairs(rules.route_key_maps) do
+            ngx.shared.route_key_maps:set("map:"..map_name, cjson.encode(key_map))
+        end
+    end
+
     -- 存储规则
-    local rule_groups = rules.rules or rules
+    local rule_groups = rules.rules or {}
     for _, rule in ipairs(rule_groups) do
         -- 存储URI映射
         for _, uri in ipairs(rule.uris) do
             ngx.shared.uri_rules:set(uri, true)
 
-            -- 存储路由键映射和提取规则
+            -- 存储路由键映射引用和提取规则
             local route_group = {
-                key_map = rule.route_key_map,
-                key_source = rule.route_key_source
+                key_map_ref = rule.route_key_map,  -- 引用route_key_maps中的映射名称
+                key_source = rule.route_key_source  -- 键提取规则
             }
-            ngx.shared.route_key_maps:set(uri, cjson.encode(route_group))
-
+            ngx.shared.route_key_maps:set("uri:"..uri, cjson.encode(route_group))
         end
-
-        -- 存储路由键映射
-        -- local route_key_map_key = table.concat(rule.uris, ",")
-        -- ngx.shared.route_key_maps:set(route_key_map_key, cjson.encode(route_group))
 
         -- 存储路由配置（排除nodes）
         for route_id, config in pairs(rule.routes) do
-            --local route_config = {}
-            --for k, v in pairs(config) do
-            --    if k ~= "nodes" then
-            --        route_config[k] = v
-            --    end
-            --end
-            ngx.shared.route_configs:set(route_id, cjson.encode(config))
+            -- 确保不存储上游节点信息
+            local route_config = {
+                rewrite = config.rewrite,
+                upstream_id = config.upstream_id,
+                rate_limit = config.rate_limit,
+                circuit_break = config.circuit_break
+                -- 不包含nodes信息
+            }
+            ngx.shared.route_configs:set(route_id, cjson.encode(route_config))
         end
     end
 
@@ -93,8 +97,11 @@ function _M.update_shared_dict(rules)
         end
     end
 
-    if rules.rules_api_url then
-        ngx.shared.rules_api_url:set("rules_api_url", rules.rules_api_url)
+    -- 设置settings参数
+    if rules.settings then
+        for key, value in pairs(rules.settings) do
+            ngx.shared.settings:set(key, value)
+        end
     end
 end
 
@@ -105,7 +112,7 @@ function _M.handle_post()
     local rules = cjson.decode(json_str)
 
     if rules then
-        save_rules(json_str)
+        save_rules(cjson.encode(rules, {indent = true}))
         _M.update_shared_dict(rules)
         ngx.say('{ "code": 200, "message": "OK"}')
     else

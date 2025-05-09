@@ -16,13 +16,13 @@ local _M = {}
 local function error_response(status, message, headers)
     ngx.status = status
     ngx.header["Content-Type"] = "application/json"
-    
+
     if headers then
         for k, v in pairs(headers) do
             ngx.header[k] = v
         end
     end
-    
+
     ngx.say(cjson.encode({
         error = {
             code = status,
@@ -154,15 +154,6 @@ local function check_rate_limit(config, route_id, ctx)
         -- 需要延迟处理
         ngx.sleep(delay)
     end
-
-    -- 流量染色 (支持 resty.limit.traffic)
-    if config.rate_limit.traffic_rules then
-        local traffic = limit_traffic.new(LIMIT_SHARED_DICT)
-        local ok, err = traffic:set(composite_key, config.rate_limit.traffic_rules)
-        if not ok then
-            ngx.log(ngx.ERR, "Failed to set traffic rules: ", err)
-        end
-    end
 end
 
 -- 执行熔断检查（仅在配置存在时执行）
@@ -181,14 +172,24 @@ local function check_circuit_break(config, route_id)
     end
 end
 
+-- 获取路由组配置（包含key_map_ref和key_source）
 local function get_route_group(matched_uris)
     for _, uri in ipairs(matched_uris) do
-        local group_str = ngx.shared.route_key_maps:get(uri)
+        local group_str = ngx.shared.route_key_maps:get("uri:"..uri)
         if group_str then
             return cjson.decode(group_str)
         end
     end
     return nil
+end
+
+-- 获取路由键映射
+local function get_route_key_map(map_name)
+    local map_str = ngx.shared.route_key_maps:get("map:"..map_name)
+    if not map_str then
+        return nil, "No route key map found for: "..map_name
+    end
+    return cjson.decode(map_str)
 end
 
 function _M.handle()
@@ -201,14 +202,21 @@ function _M.handle()
         error_response(404, err)
     end
 
-    -- 3. 获取路由组配置（包含key_map和key_source）
+    -- 3. 获取路由组配置（包含key_map_ref和key_source）
     local route_group = get_route_group(matched_uris)
     if not route_group then
         error_response(404, "No route group found")
         return
     end
 
-    -- 4. 提取路由因子
+    -- 4. 获取路由键映射
+    local route_key_map, err = get_route_key_map(route_group.key_map_ref)
+    if not route_key_map then
+        error_response(404, err)
+        return
+    end
+
+    -- 5. 提取路由因子
     local route_key = extractor.extract_route_key(ctx, {
         route_key_source = route_group.key_source
     })
@@ -218,8 +226,8 @@ function _M.handle()
     end
     ngx.req.set_header("X-Route-Key", route_key)
 
-    -- 5. 获取路由ID
-    local route_id = route_group.key_map[route_key] or route_group.key_map["*"]
+    -- 6. 获取路由ID
+    local route_id = route_key_map[route_key] or route_key_map["*"]
     if not route_id then
         error_response(404, "No route mapping for key: "..route_key)
         return
@@ -227,23 +235,23 @@ function _M.handle()
     ngx.var.route_id = route_id
     ngx.req.set_header("X-Route-Id", route_id)
 
-    -- 6. 获取路由配置
+    -- 7. 获取路由配置
     local config, err = get_route_config(route_id)
     if not config then
         error_response(404, err)
     end
 
-    -- 7. 应用重写规则
+    -- 8. 应用重写规则
     apply_rewrite(config)
 
-    -- 8. 限流检查（仅在配置存在时执行）
+    -- 9. 限流检查（仅在配置存在时执行）
     check_rate_limit(config, route_id, ctx)
 
-    -- 9. 熔断检查（仅在配置存在时执行）
+    -- 10. 熔断检查（仅在配置存在时执行）
     check_circuit_break(config, route_id)
 
-    -- 10. 负载均衡处理
-    local node, err = balancer.select_node(route_id)
+    -- 11. 负载均衡处理
+    local node, err = balancer.select_node(config.upstream_id)
     if not node then
         error_response(503, "No available upstream nodes: " .. (err or "unknown"))
     end

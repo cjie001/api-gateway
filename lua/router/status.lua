@@ -77,6 +77,19 @@ local function get_upstreams()
     return data
 end
 
+-- 获取网关全局参数配置
+local function get_settings()
+    local data = {}
+    local keys = ngx.shared.settings:get_keys(_M.MAX_ITEMS)
+
+    for _, key in ipairs(keys) do
+        local val = ngx.shared.settings:get(key)
+        data[key] = val and cjson.decode(val) or val
+    end
+
+    return data
+end
+
 -- 获取完整的规则快照
 local function get_full_snapshot()
     local snapshot = {
@@ -85,12 +98,13 @@ local function get_full_snapshot()
         route_key_maps = get_route_key_maps(),
         route_configs = get_route_configs(),
         upstreams = get_upstreams(),
-        rules_api_url = ngx.shared.rules_api_url:get("rules_api_url"),
+        settings = get_settings(),
         memory_stats = {
             uri_rules = ngx.shared.uri_rules:capacity(),
             route_key_maps = ngx.shared.route_key_maps:capacity(),
             route_configs = ngx.shared.route_configs:capacity(),
-            upstreams = ngx.shared.upstreams:capacity()
+            upstreams = ngx.shared.upstreams:capacity(),
+            settings = ngx.shared.settings:capacity()
         }
     }
 
@@ -111,7 +125,7 @@ function _M.query(args)
 
     local response
 
-    if args.full or not (args.uri_rules or args.route_key_maps or args.routes or args.upstreams) then
+    if args.full or not (args.uri_rules or args.route_key_maps or args.routes or args.upstreams or args.settings) then
         -- 返回完整快照
         response = get_full_snapshot()
     else
@@ -121,7 +135,8 @@ function _M.query(args)
             uri_rules = args.uri_rules and get_uri_rules() or nil,
             route_key_maps = args.route_key_maps and get_route_key_maps() or nil,
             route_configs = args.routes and get_route_configs() or nil,
-            upstreams = args.upstreams and get_upstreams() or nil
+            upstreams = args.upstreams and get_upstreams() or nil,
+            settings = args.settings and get_settings() or nil
         }
     end
 
@@ -140,11 +155,11 @@ function _M.health()
             uri_rules = ngx.shared.uri_rules:capacity(),
             route_key_maps = ngx.shared.route_key_maps:capacity(),
             route_configs = ngx.shared.route_configs:capacity(),
-            upstreams = ngx.shared.upstreams:capacity()
+            upstreams = ngx.shared.upstreams:capacity(),
+            settings = ngx.shared.settings:capacity()
         },
         uptime = ngx.now() - ngx.req.start_time()
     }
 end
 
--- response.data.rules_api_url = ngx.shared.rules_api_url:get("rules_api_url")
 return _M

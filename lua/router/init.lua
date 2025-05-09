@@ -1,5 +1,6 @@
 local cjson = require "cjson.safe"
 local update = require "router.update"
+local const = require "const"
 
 -- 初始示例规则
 local DEFAULT_RULES = {
@@ -26,7 +27,9 @@ local DEFAULT_RULES = {
             }
         }
     },
-    rules_api_url = "http://192.168.0.158:9001/mock/latest_rules"
+    settings = {
+        rules_api_url = const.RULES_API_URL
+    }
 }
 
 -- 加载规则

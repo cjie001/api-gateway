@@ -71,27 +71,52 @@ function _M.mock_response()
 end
 
 function _M.mock_last_rules()
-    -- 自定义响应报文内容
-    local response_body = {
-        merchant_map = {
-            ["1234567890"] = "route_trade_activity",
-            ["9876543210"] = "route_standard",
-            ["*"] = "route_default"
-        },
-        routes = {
-            route_trade_activity = {
-                rewrite = "^/api/trade(.*)$ /trade_activity$1"
-            },
-            route_standard = {
-                rewrite = "^/api/trade(.*)$ /trade$1"
-            },
-            route_default = {
-                rewrite = "^/(.*)$ /$1"
+    local DEFAULT_RULES = {
+        rules = {
+            {
+                uris = {"/api"},
+                route_key_map = {
+                    ["*"] = "route_default"
+                },
+                routes = {
+                    route_default = {
+                        rewrite = "^/(.*)$ /$1",
+                        upstream_id = "default_servers"
+                    }
+                }
             }
+        },
+        upstreams = {
+            default_servers = {
+                {
+                    host = "127.0.0.1", 
+                    port = 9001, 
+                    weight = 1
+                }
+            }
+        },
+        settings = {
+            rules_api_url = const.RULES_API_URL
         }
     }
 
-    ngx.say(cjson.encode(response_body))
+    local current_rules = DEFAULT_RULES
+    -- 从文件读取响应报文内容
+    local filename = ngx.config.prefix() .. "/test/rule.json"
+    local file, err = io.open(filename, "r")
+    if file then
+        local content = file:read("*a")
+        file:close()
+        local json_dict = cjson.decode(content)
+        if json_dict then
+            current_rules = json_dict
+        end
+    else
+        ngx.log(ngx.ERR, filename .. "not found, use DEFAULT_RULES.")
+    end
+
+    ngx.header["Content-Type"] = "application/json"
+    ngx.say(cjson.encode(current_rules))
 end
 
 return _M
