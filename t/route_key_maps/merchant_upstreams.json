@@ -1,0 +1,5 @@
+{
+    "1234567890": "activity_servers",
+    "1": "vip_servers",
+    "*": "vip_servers"
+}

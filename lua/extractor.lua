@@ -82,10 +82,17 @@ function _M.extract_var(key, ctx)
 
     -- 支持 BODY['"merchant_id"%s*:%s*"([^"]+)"'] 格式
     elseif key:match("^BODY%[") then
+        ngx.log(ngx.DEBUG, "extractor BODY...")
         local pattern = key:match("^BODY%['([^']+)'%]") or key:match('^BODY%["([^"]+)"%]')
+        if not pattern then
+            ngx.log(ngx.ERR, "Key not matched: ", key)
+        end
         if pattern and ctx.body then
+            ngx.log(ngx.DEBUG, "extractor pattern: ", pattern)
             local value = ctx.body:match(pattern)
             return value
+        else
+            ngx.log(ngx.ERR, "body is nil")
         end
 
     -- 支持直接变量引用
@@ -126,6 +133,7 @@ end
 function _M.extract_route_key(ctx, route_config)
     -- 如果没有配置route_key_source，使用默认route_key
     if not route_config or not route_config.route_key_source then
+        ngx.log(ngx.DEBUG, "route_config or conf.route_key_source not found.")
         return "default"
     end
 

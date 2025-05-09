@@ -1,0 +1,44 @@
+{
+    "methods": ["GET", "POST"],
+    "uri": "/api/pay",
+    "plugins": {
+        "proxy-rewrite": {
+            "uri": "/test/trade",
+            "host": "iresty.com",
+            "headers": {
+                "set": {
+                    "X-Api-Version": "v1",
+                    "X-Api-Engine": "api",
+                    "X-Api-useless": ""
+                },
+                "add": {
+                    "X-Request-ID": "112233"
+                },
+                "remove":[
+                    "X-test"
+                ]
+            }
+        },
+		"route-key-router": {
+			"route_key_source": "${BODY['\"mchntCd\"%s*:%s*\"([^\"]+)\"']}",
+			"route_key_map": "merchant_upstreams"
+		},
+        "api-breaker": {
+            "break_response_code": 502,
+            "unhealthy": {
+                "http_statuses": [500, 503],
+                "failures": 3
+            },
+            "healthy": {
+                "http_statuses": [200],
+                "successes": 1
+            }
+        }
+    },
+    "upstream": {
+      "type": "roundrobin",
+      "nodes": {
+        "127.0.0.1:9001": 1
+      }
+    }
+}

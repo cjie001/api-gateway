@@ -1,0 +1,34 @@
+{
+    "methods": ["GET", "POST"],
+    "uri": "/api/pay/qrcode",
+    "plugins": {
+		"route-key-router": {
+			"route_key_source": "${BODY['\"mchntCd\"%s*:%s*\"([^\"]+)\"']}",
+			"route_key_map": "merchant_upstreams",
+            "rewrite": [
+                {
+                    "regex": "^/api/pay/qrcode(.*)$",
+                    "replacement": "/internal/trade$1",
+                    "upstream_ids": ["activity_servers"]
+                }
+            ]
+		},
+        "api-breaker": {
+            "break_response_code": 502,
+            "unhealthy": {
+                "http_statuses": [500, 503],
+                "failures": 3
+            },
+            "healthy": {
+                "http_statuses": [200],
+                "successes": 1
+            }
+        }
+    },
+    "upstream": {
+      "type": "roundrobin",
+      "nodes": {
+        "127.0.0.1:9001": 1
+      }
+    }
+}
